@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+
+  # ─── PostgreSQL Database ──────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: medblock_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: medblock_user
+      POSTGRES_PASSWORD: medblock_pass
+      POSTGRES_DB: medblock
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - medblock_net
+
+  # ─── Node.js API Gateway (Chandan's responsibility) ──────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medblock_backend
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      JWT_SECRET: your_super_secret_jwt_key_change_this
+      DB_URL: postgres://medblock_user:medblock_pass@db:5432/medblock
+      # Update these when ML and Blockchain guys give their IPs/containers
+      FASTAPI_ML_URL: http://ml_service:8000
+      GO_BLOCKCHAIN_URL: http://blockchain_service:5000
+    depends_on:
+      - db
+    networks:
+      - medblock_net
+
+  # ─── React Frontend ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: medblock_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - medblock_net
+  # ─── ML Service (FastAPI — Python guy's responsibility) ───────────────
+  # ml_service:
+  #   image: ml-guy-username/medblock-ml:latest   ← ML guy builds & pushes this
+  #   container_name: ml_service
+  #   ports:
+  #     - "8000:8000"
+  #   networks:
+  #     - medblock_net
+
+  # ─── Blockchain Service (Go guy's responsibility) ─────────────────────
+  # blockchain_service:
+  #   image: blockchain-guy-username/medblock-blockchain:latest  ← BC guy builds & pushes
+  #   container_name: blockchain_service
+  #   ports:
+  #     - "5000:5000"
+  #   networks:
+  #     - medblock_net
+
+volumes:
+  pgdata:
+
+
+networks:
+  medblock_net:
+    driver: bridge
